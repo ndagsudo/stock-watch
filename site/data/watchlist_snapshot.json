@@ -1,0 +1,145 @@
+{
+  "generated_at": "2026-10-18T00:51:04.226729+00:00",
+  "mode": "sample",
+  "source_info": {
+    "provider": "サンプルデータ（J-Quants APIには接続していません）",
+    "note": "これは画面確認用のダミーデータです。実際の株価・財務データではありません。"
+  },
+  "companies": {
+    "7203": {
+      "name": "トヨタ自動車（サンプル）",
+      "market_name": "プライム",
+      "sector33_name": "輸送用機器",
+      "price": 2980.0,
+      "prev_close": 2950.0,
+      "per": 10.8,
+      "pbr": 1.2,
+      "roe": 0.112,
+      "sales_growth_yoy": 0.06,
+      "operating_profit_growth_yoy": 0.09,
+      "operating_margin": 0.095,
+      "equity_ratio": 0.38,
+      "dividend_yield": 0.028,
+      "high_52w": 3200.0,
+      "latest_disclosure_date": "2026-08-05",
+      "price_date": "2026-10-17",
+      "code": "7203",
+      "change": 30.0,
+      "change_pct": 0.010169491525423728,
+      "drawdown_from_52w_high": 0.06874999999999998,
+      "peg": 1.8,
+      "data_available": {
+        "price": true,
+        "financials": true
+      },
+      "is_sample": true,
+      "updated_at": "2026-10-18T00:51:04.226729+00:00",
+      "screening": {
+        "code": "7203",
+        "name": "トヨタ自動車（サンプル）",
+        "score": 60.0,
+        "notable_reasons": [
+          "PERが10.8倍と低め",
+          "営業利益成長率が9.0%",
+          "営業利益率が9.5%と高め",
+          "ROEが11.2%"
+        ],
+        "concerns": [],
+        "data_sufficient": true,
+        "missing_fields": [],
+        "as_of_date": "2026-08-05"
+      }
+    },
+    "6758": {
+      "name": "ソニーグループ（サンプル）",
+      "market_name": "プライム",
+      "sector33_name": "電気機器",
+      "price": 3650.0,
+      "prev_close": 3700.0,
+      "per": 18.2,
+      "pbr": 2.5,
+      "roe": 0.137,
+      "sales_growth_yoy": 0.11,
+      "operating_profit_growth_yoy": 0.15,
+      "operating_margin": 0.12,
+      "equity_ratio": 0.42,
+      "dividend_yield": 0.006,
+      "high_52w": 3900.0,
+      "latest_disclosure_date": "2026-08-08",
+      "price_date": "2026-10-17",
+      "code": "6758",
+      "change": -50.0,
+      "change_pct": -0.013513513513513514,
+      "drawdown_from_52w_high": 0.0641025641025641,
+      "peg": 1.65,
+      "data_available": {
+        "price": true,
+        "financials": true
+      },
+      "is_sample": true,
+      "updated_at": "2026-10-18T00:51:04.226729+00:00",
+      "screening": {
+        "code": "6758",
+        "name": "ソニーグループ（サンプル）",
+        "score": 60.0,
+        "notable_reasons": [
+          "売上高成長率が11.0%",
+          "営業利益成長率が15.0%",
+          "営業利益率が12.0%と高め",
+          "ROEが13.7%"
+        ],
+        "concerns": [
+          "PERが18.2倍で割安感は薄い"
+        ],
+        "data_sufficient": true,
+        "missing_fields": [],
+        "as_of_date": "2026-08-08"
+      }
+    },
+    "9984": {
+      "name": "ソフトバンクグループ（サンプル）",
+      "market_name": "プライム",
+      "sector33_name": "情報・通信業",
+      "price": 10250.0,
+      "prev_close": 10400.0,
+      "per": null,
+      "pbr": null,
+      "roe": null,
+      "sales_growth_yoy": null,
+      "operating_profit_growth_yoy": null,
+      "operating_margin": null,
+      "equity_ratio": null,
+      "dividend_yield": 0.005,
+      "high_52w": 12800.0,
+      "latest_disclosure_date": null,
+      "price_date": "2026-10-17",
+      "code": "9984",
+      "change": -150.0,
+      "change_pct": -0.014423076923076924,
+      "drawdown_from_52w_high": 0.19921875,
+      "peg": null,
+      "data_available": {
+        "price": true,
+        "financials": false
+      },
+      "is_sample": true,
+      "updated_at": "2026-10-18T00:51:04.226729+00:00",
+      "screening": {
+        "code": "9984",
+        "name": "ソフトバンクグループ（サンプル）",
+        "score": null,
+        "notable_reasons": [
+          "52週高値から19.9%下落しており調整中"
+        ],
+        "concerns": [],
+        "data_sufficient": false,
+        "missing_fields": [
+          "per",
+          "sales_growth_yoy",
+          "operating_profit_growth_yoy"
+        ],
+        "as_of_date": "2026-10-17"
+      }
+    }
+  }
+}

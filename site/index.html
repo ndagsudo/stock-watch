@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1220">
+<title>日本株監視アシスタント</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <h1>日本株監視アシスタント</h1>
+  <div id="sample-banner" class="banner" hidden>
+    サンプルデータを表示しています。実際の株価・財務データではありません。
+  </div>
+  <div id="update-info" class="update-info">読み込み中…</div>
+</header>
+
+<main>
+  <!-- 一覧タブ -->
+  <section id="tab-list" class="tab-panel">
+    <div id="list-empty" class="empty-state" hidden>
+      銘柄が登録されていません。「登録・管理」タブから銘柄を追加してください。
+    </div>
+    <div id="watch-cards"></div>
+  </section>
+
+  <!-- 登録・管理タブ -->
+  <section id="tab-register" class="tab-panel" hidden>
+    <form id="register-form" class="card form-card">
+      <h2>銘柄を登録</h2>
+
+      <label class="field">
+        <span>銘柄コード または 企業名で検索</span>
+        <input type="text" id="code-search" placeholder="例: 7203 / トヨタ" autocomplete="off">
+      </label>
+      <div id="search-results" class="search-results" hidden></div>
+
+      <input type="hidden" id="selected-code">
+      <div id="selected-company" class="selected-company" hidden></div>
+
+      <label class="field">
+        <span>購入検討価格（円・任意）</span>
+        <input type="number" id="target-price" inputmode="decimal" placeholder="例: 2500">
+      </label>
+
+      <label class="field">
+        <span>投資理由メモ（任意）</span>
+        <textarea id="memo" rows="3" placeholder="なぜ気になるのか、メモしておきましょう"></textarea>
+      </label>
+
+      <fieldset class="field-group">
+        <legend>監視条件</legend>
+
+        <label class="checkbox-row">
+          <input type="checkbox" id="alert-target-price" checked>
+          <span>購入検討価格以下になったら通知</span>
+        </label>
+
+        <label class="field">
+          <span>株価の変動率（前日比）がこの割合以上なら通知（%・任意）</span>
+          <input type="number" id="alert-change-pct" inputmode="decimal" placeholder="例: 5">
+        </label>
+
+        <label class="field">
+          <span>PERがこの値以下になったら通知（任意）</span>
+          <input type="number" id="alert-per-max" inputmode="decimal" placeholder="例: 12">
+        </label>
+
+        <label class="field">
+          <span>PBRがこの値以下になったら通知（任意）</span>
+          <input type="number" id="alert-pbr-max" inputmode="decimal" placeholder="例: 1.0">
+        </label>
+
+        <label class="checkbox-row">
+          <input type="checkbox" id="alert-earnings" checked>
+          <span>決算情報が更新されたら通知</span>
+        </label>
+
+        <label class="field">
+          <span>売上高・営業利益の前期比変化がこの割合以上なら通知（%・任意）</span>
+          <input type="number" id="alert-financial-change" inputmode="decimal" placeholder="例: 20" value="20">
+        </label>
+      </fieldset>
+
+      <button type="submit" class="btn-primary" id="save-btn">保存する</button>
+      <button type="button" class="btn-secondary" id="cancel-edit-btn" hidden>編集をやめる</button>
+    </form>
+
+    <h2 class="section-title">登録済みの銘柄</h2>
+    <div id="registered-empty" class="empty-state" hidden>まだ銘柄が登録されていません。</div>
+    <div id="registered-list"></div>
+  </section>
+
+  <!-- 割安成長株抽出タブ -->
+  <section id="tab-screener" class="tab-panel" hidden>
+    <p class="note-text">
+      データを取得している銘柄の中から、明示的なルール（PER・PEG・成長率・財務健全性など）で
+      ランキングします。AIによる判定は行っていません。データが不足している銘柄は上位に表示されません。
+    </p>
+    <div id="screener-empty" class="empty-state" hidden>まだ評価できる銘柄がありません。</div>
+    <div id="screener-list"></div>
+  </section>
+
+  <!-- 設定タブ -->
+  <section id="tab-settings" class="tab-panel" hidden>
+    <div class="card">
+      <h2>データ取得元</h2>
+      <div id="source-info"></div>
+    </div>
+
+    <div class="card">
+      <h2>自動更新に銘柄を反映する</h2>
+      <p class="note-text">
+        毎朝の自動更新は、どの銘柄のデータを取得するかを
+        <code>data/watchlist_codes.json</code> というファイル（銘柄コードのみ。
+        購入検討価格やメモは含まれません）で把握します。新しい銘柄を登録・削除したら、
+        下のボタンで最新のコード一覧をコピーして、そのファイルに貼り付けてGitHubに
+        保存してください（数か月に一度程度の軽い作業を想定しています）。
+      </p>
+      <button class="btn-secondary" id="copy-codes-btn">登録銘柄コードをコピー</button>
+      <div id="copy-codes-result" class="note-text"></div>
+      <pre id="copy-codes-preview" class="code-preview" hidden></pre>
+    </div>
+
+    <div class="card">
+      <h2>バックアップ</h2>
+      <p class="note-text">
+        登録銘柄・購入検討価格・メモはこの端末のブラウザ内だけに保存されています
+        （他の端末・ブラウザとは共有されません）。機種変更やブラウザのデータ消去に備えて
+        定期的にバックアップしてください。
+      </p>
+      <button class="btn-secondary" id="export-btn">JSONエクスポート（書き出し）</button>
+      <label class="btn-secondary file-btn">
+        JSONインポート（読み込み）
+        <input type="file" id="import-file" accept="application/json" hidden>
+      </label>
+      <div id="import-result" class="note-text"></div>
+    </div>
+
+    <div class="card">
+      <h2>このアプリについて</h2>
+      <p class="note-text">
+        個人用の日本株監視アシスタントです。表示されている情報は投資助言ではありません。
+        投資判断は利用者ご自身の責任で行ってください。
+      </p>
+    </div>
+  </section>
+</main>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="list">
+    <span class="tab-icon">📋</span><span>一覧</span>
+  </button>
+  <button class="tab-btn" data-tab="register">
+    <span class="tab-icon">➕</span><span>登録・管理</span>
+  </button>
+  <button class="tab-btn" data-tab="screener">
+    <span class="tab-icon">🔍</span><span>抽出</span>
+  </button>
+  <button class="tab-btn" data-tab="settings">
+    <span class="tab-icon">⚙️</span><span>設定</span>
+  </button>
+</nav>
+
+<script src="./app.js"></script>
+</body>
+</html>

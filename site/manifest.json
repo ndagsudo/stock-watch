@@ -1,0 +1,15 @@
+{
+  "name": "日本株監視アシスタント",
+  "short_name": "株監視",
+  "description": "気になる日本企業を登録して、株価・財務指標の変化を毎朝確認するための個人用アプリ",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
