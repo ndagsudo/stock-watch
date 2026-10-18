@@ -12,6 +12,7 @@ J-Quants API から取得した生データを SQLite に取り込むオーケ�
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,9 +25,35 @@ from config import settings
 from src import database
 from src.jquants_client import JQuantsClient, JQuantsAPIError
 
+_SUBSCRIPTION_RANGE_RE = re.compile(r"covers the following dates:\s*[\d-]+\s*~\s*(\d{4}-\d{2}-\d{2})")
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_subscription_end_date(message: str) -> Optional[str]:
+    """J-Quantsが返す『契約プランがカバーする日付範囲外』エラーメッセージから
+    上限日付を抽出する（例: "Your subscription covers the following dates:
+    2024-07-26 ~ 2026-07-26. ..." -> "20260726"）。Freeプラン等では『today』が
+    必ずしもこの範囲に収まらない（直近数か月のデータが未提供）ため、この
+    上限日付を実際の『取得可能な最新日』として扱う（stock-screenerプロジェクトで
+    実運用確認済みの対処）。"""
+    m = _SUBSCRIPTION_RANGE_RE.search(message or "")
+    if not m:
+        return None
+    return m.group(1).replace("-", "")
+
+
+def _normalize_code(raw_code: str) -> str:
+    """J-Quantsの一部エンドポイント（銘柄マスタ等）は銘柄コードを5文字
+    （4桁+末尾0埋め、例: "80350"）で返すことがあるが、本アプリの内部コード
+    （watchlist_codes.json・価格/決算取得で使うコード）は4桁（例: "8035"）に
+    統一している。5文字かつ末尾が"0"の場合のみ4桁に正規化し、特殊株式区分
+    （末尾が英字等）はそのまま返す。"""
+    if len(raw_code) == 5 and raw_code.endswith("0"):
+        return raw_code[:4]
+    return raw_code
 
 
 def _to_float(value) -> Optional[float]:
@@ -57,9 +84,10 @@ def load_company_master(client: JQuantsClient, conn: sqlite3.Connection, run_id:
 
     rows = []
     for r in records:
-        code = r.get("Code")
-        if not code:
+        raw_code = r.get("Code")
+        if not raw_code:
             continue
+        code = _normalize_code(raw_code)
         rows.append(
             {
                 "code": code,
@@ -78,10 +106,11 @@ def load_company_master(client: JQuantsClient, conn: sqlite3.Connection, run_id:
 def _quotes_to_rows(records: list[dict]) -> list[dict]:
     rows = []
     for r in records:
-        code = r.get("Code")
+        raw_code = r.get("Code")
         date = r.get("Date")
-        if not code or not date:
+        if not raw_code or not date:
             continue
+        code = _normalize_code(raw_code)
         mkt_cap = _to_float(r.get("MktCap"))
         rows.append(
             {
@@ -101,19 +130,44 @@ def _quotes_to_rows(records: list[dict]) -> list[dict]:
 
 
 def load_price_history(
-    client: JQuantsClient, conn: sqlite3.Connection, run_id: str, code: str, days: int = None
-) -> int:
+    client: JQuantsClient,
+    conn: sqlite3.Connection,
+    run_id: str,
+    code: str,
+    days: int = None,
+    known_end_date: Optional[str] = None,
+) -> tuple[int, Optional[str]]:
+    """価格履歴を取得する。契約プラン（Freeプラン等）がカバーする日付範囲が
+    『今日』より前で止まっている場合、J-Quantsはエラーメッセージで実際の
+    上限日付を教えてくれる。その日付が分かっている（known_end_date）、または
+    エラーから判明した場合はそれを to_date として使い、1回だけリトライする。
+    戻り値は (取得件数, 実際に使用した to_date)。known_end_date を呼び出し元が
+    キャッシュして次の銘柄から渡せば、同じ失敗を繰り返さずに済む。"""
     days = days or settings.PRICE_HISTORY_DAYS
-    to_date = datetime.now(timezone.utc).strftime("%Y%m%d")
-    from_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y%m%d")
+    end_date = known_end_date or datetime.now(timezone.utc).strftime("%Y%m%d")
+    from_date = (datetime.strptime(end_date, "%Y%m%d") - timedelta(days=days)).strftime("%Y%m%d")
+
     try:
-        records = client.get_daily_quotes(code=code, from_date=from_date, to_date=to_date)
+        records = client.get_daily_quotes(code=code, from_date=from_date, to_date=end_date)
     except JQuantsAPIError as exc:
-        database.log_error(conn, run_id, "load_price_history", str(exc), code=code)
-        return 0
+        message = str(exc)
+        subscription_end = _parse_subscription_end_date(message)
+        if subscription_end and subscription_end != end_date:
+            retry_from = (datetime.strptime(subscription_end, "%Y%m%d") - timedelta(days=days)).strftime("%Y%m%d")
+            try:
+                records = client.get_daily_quotes(code=code, from_date=retry_from, to_date=subscription_end)
+            except JQuantsAPIError as exc2:
+                database.log_error(conn, run_id, "load_price_history", str(exc2), code=code)
+                return 0, subscription_end
+            rows = _quotes_to_rows(records)
+            database.upsert(conn, "prices", rows, ["code", "date"])
+            return len(rows), subscription_end
+        database.log_error(conn, run_id, "load_price_history", message, code=code)
+        return 0, known_end_date
+
     rows = _quotes_to_rows(records)
     database.upsert(conn, "prices", rows, ["code", "date"])
-    return len(rows)
+    return len(rows), end_date
 
 
 def load_financials(client: JQuantsClient, conn: sqlite3.Connection, run_id: str, code: str) -> int:
@@ -195,9 +249,14 @@ def load_all(run_id: str, codes: list[str], api_key: Optional[str] = None) -> di
     with database.connect() as conn:
         summary["company_master"] = load_company_master(client, conn, run_id)
 
+        # Freeプラン等で「今日」が契約範囲外の場合、最初の銘柄で判明した上限日付を
+        # 以降の銘柄すべてに使い回す（同じ400エラーを21銘柄分繰り返さないため）。
+        known_end_date: Optional[str] = None
         for code in codes:
             try:
-                p = load_price_history(client, conn, run_id, code)
+                p, used_end_date = load_price_history(client, conn, run_id, code, known_end_date=known_end_date)
+                if used_end_date:
+                    known_end_date = used_end_date
                 f = load_financials(client, conn, run_id, code)
                 d = load_dividends(client, conn, run_id, code)
                 if p or f:
