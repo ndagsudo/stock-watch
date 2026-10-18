@@ -99,6 +99,10 @@ def load_company_master(client: JQuantsClient, conn: sqlite3.Connection, run_id:
                 "last_updated_date": _now_iso(),
             }
         )
+    # companies は履歴テーブルではなく「現在の銘柄マスタ」のキャッシュなので、
+    # 毎回フルリストで洗い替える（コード正規化前の古い行が残って検索結果が
+    # 重複するのを防ぐ。上場廃止銘柄が自然に消えるのも意図通り）。
+    conn.execute("DELETE FROM companies")
     database.upsert(conn, "companies", rows, ["code"])
     return len(rows)
 

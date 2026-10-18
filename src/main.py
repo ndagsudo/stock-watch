@@ -43,11 +43,15 @@ def run_pipeline(skip_fetch: bool = False) -> dict:
     else:
         result["fetch"] = {"status": "skipped_by_flag"}
 
-    mode = "live" if settings.JQUANTS_API_KEY else "sample"
+    # "mode" は「このJSONが実データのパイプラインで生成されたか」を示す。
+    # data/watchlist.db の中身が実データかどうかで決まり、実行時に
+    # JQUANTS_API_KEY が設定されているか（--skip-fetch でAPIを呼ばない場合など）
+    # には左右されない。サンプルデータは scripts/seed_sample_data.py が別途
+    # 書き出すファイルでのみ使われる値で、ここでは常に "live" を使う。
     export.write_companies_master()
-    snapshot = export.write_snapshot(mode=mode)
+    snapshot = export.write_snapshot(mode="live")
     result["companies_in_snapshot"] = len(snapshot["companies"])
-    result["mode"] = mode
+    result["mode"] = "live"
     return result
 
 
